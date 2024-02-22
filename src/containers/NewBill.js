@@ -28,6 +28,7 @@ export default class NewBill {
 
     if (!acceptedExtensions.includes(fileExtension)) {
       alert("Seuls les fichiers jpg, jpeg et png sont acceptés.")
+      console.error("wrong extension")
       e.target.value = ""
       return
     }
