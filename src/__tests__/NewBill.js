@@ -64,6 +64,28 @@ describe("Given I am connected as an employee", () => {
 
       expect(mailIcon.classList).toContain("active-icon")
     })
+    test("Then, should correctly append the file and email to the FormData", () => {
+      // Given
+      const file = new File(["file"], "file.png", { type: "image/png" })
+      const email = "test@test.com"
+      const getItemSpy = jest
+        .spyOn(window.localStorage, "getItem")
+        .mockImplementation(() => JSON.stringify({ email }))
+      const formDataAppendSpy = jest.spyOn(FormData.prototype, "append")
+
+      // When
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append(
+        "email",
+        JSON.parse(window.localStorage.getItem("user")).email
+      )
+
+      // Then
+      expect(getItemSpy).toHaveBeenCalledWith("user")
+      expect(formDataAppendSpy).toHaveBeenCalledWith("file", file)
+      expect(formDataAppendSpy).toHaveBeenCalledWith("email", email)
+    })
   })
 
   describe("When I am on NewBill Page and I upload a file ", () => {
@@ -127,6 +149,42 @@ describe("Given I am connected as an employee", () => {
       expect(errorSpy).toHaveBeenCalledWith("wrong extension")
     })
   })
+
+  describe("When I am on NewBill Page and an error occurs on API", () => {
+    test("Then, new bill is added to the API but fetch fails with '404 page not found' error", async () => {
+      const mockedBill = jest
+        .spyOn(mockStore, "bills")
+        .mockImplementationOnce(() => {
+          return {
+            create: jest.fn().mockRejectedValue(new Error("Erreur 404")),
+          }
+        })
+
+      await expect(mockedBill().create).rejects.toThrow("Erreur 404")
+
+      expect(mockedBill).toHaveBeenCalledTimes(1)
+
+      expect(newBill.billId).toBeNull()
+      expect(newBill.fileUrl).toBeNull()
+      expect(newBill.fileName).toBeNull()
+    })
+    test("Then new bill is added to the API but fetch fails with '500 Internal Server error'", async () => {
+      const mockedBill = jest
+        .spyOn(mockStore, "bills")
+        .mockImplementationOnce(() => {
+          return {
+            create: jest.fn().mockRejectedValue(new Error("Erreur 500")),
+          }
+        })
+
+      await expect(mockedBill().create).rejects.toThrow("Erreur 500")
+
+      expect(newBill.billId).toBeNull()
+      expect(newBill.fileUrl).toBeNull()
+      expect(newBill.fileName).toBeNull()
+    })
+  })
+
   // POST integration test
   describe("When I am on NewBill Page and I click on the submit button", () => {
     test("Then it should create a new bill", () => {
