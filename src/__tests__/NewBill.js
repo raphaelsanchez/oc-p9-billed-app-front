@@ -11,6 +11,28 @@ import NewBillUI from "../views/NewBillUI.js"
 import NewBill from "../containers/NewBill.js"
 import router from "../app/Router.js"
 
+let newBill
+
+function initializeNewBill() {
+  // set up the new bill
+  document.body.innerHTML = NewBillUI()
+
+  const onNavigate = (pathname) => {
+    document.body.innerHTML = ROUTES({ pathname })
+  }
+
+  newBill = new NewBill({
+    document,
+    onNavigate,
+    store: mockStore,
+    localStorage: window.localStorage,
+  })
+}
+
+beforeEach(() => {
+  initializeNewBill()
+})
+
 describe("Given I am connected as an employee", () => {
   beforeEach(() => {
     // set up the mock localStorage and mock user for the test
@@ -26,7 +48,7 @@ describe("Given I am connected as an employee", () => {
   })
 
   describe("When I am on NewBill Page", () => {
-    test("then mail icon in vertical layout should be highlighted", async () => {
+    test("Then mail icon in vertical layout should be highlighted", async () => {
       // creation of the root element
       const root = document.createElement("div")
       root.setAttribute("id", "root")
@@ -44,135 +66,113 @@ describe("Given I am connected as an employee", () => {
     })
   })
 
-  describe("When I fill the form ", () => {
-    let newBill
+  describe("When I am on NewBill Page and I upload a file ", () => {
+    let handleChangeFile
 
     beforeEach(() => {
-      // set up the new bill
-      document.body.innerHTML = NewBillUI()
-
-      const onNavigate = (pathname) => {
-        document.body.innerHTML = ROUTES({ pathname })
-      }
-
-      newBill = new NewBill({
-        document,
-        onNavigate,
-        store: mockStore,
-        localStorage: window.localStorage,
-      })
+      // create the handleChangeFile mocked function
+      handleChangeFile = jest.fn((e) => newBill.handleChangeFile(e))
     })
 
-    describe("When I upload a file", () => {
-      let handleChangeFile
+    test("Then handleChangeFile should be triggered ", async () => {
+      // get the input file element and add the event listener
+      await waitFor(() => screen.getByTestId("file"))
+      const inputFile = screen.getByTestId("file")
 
-      beforeEach(() => {
-        // create the handleChangeFile mocked function
-        handleChangeFile = jest.fn((e) => newBill.handleChangeFile(e))
+      inputFile.addEventListener("change", handleChangeFile)
+
+      // creation of the test file to upload
+      const testFile = new File(["test"], "test.jpg", { type: "image/jpg" })
+
+      // simulate the file upload
+      fireEvent.change(inputFile, {
+        target: {
+          files: [testFile],
+        },
       })
 
-      test("then handleChangeFile should be triggered ", async () => {
-        // get the input file element and add the event listener
-        await waitFor(() => screen.getByTestId("file"))
-        const inputFile = screen.getByTestId("file")
+      // check that the file name is displayed
+      expect(screen.getByTestId("file").files[0].name).toBe("test.jpg")
 
-        inputFile.addEventListener("change", handleChangeFile)
+      // caheck that handleChangeFile is called
+      expect(handleChangeFile).toHaveBeenCalled()
 
-        // creation of the test file to upload
-        const testFile = new File(["test"], "test.jpg", { type: "image/jpg" })
-
-        // simulate the file upload
-        fireEvent.change(inputFile, {
-          target: {
-            files: [testFile],
-          },
-        })
-
-        // check that the file name is displayed
-        expect(screen.getByTestId("file").files[0].name).toBe("test.jpg")
-
-        // caheck that handleChangeFile is called
-        expect(handleChangeFile).toHaveBeenCalled()
-
-        // check formdata values
-        expect(inputFile.files[0]).toEqual(testFile)
-      })
-
-      test("then upload a wrong file should trigger an error", async () => {
-        // get the input file element and add the event listener
-        await waitFor(() => screen.getByTestId("file"))
-        const inputFile = screen.getByTestId("file")
-
-        inputFile.addEventListener("change", handleChangeFile)
-
-        // creation of the test file to upload
-        const testFile = new File(["test"], "test.pdf", {
-          type: "document/pdf",
-        })
-
-        // spy the console
-        const errorSpy = jest.spyOn(console, "error")
-
-        // simulate the file upload
-        fireEvent.change(inputFile, {
-          target: {
-            files: [testFile],
-          },
-        })
-
-        // check that the error message is displayed in the console
-        expect(errorSpy).toHaveBeenCalledWith("wrong extension")
-      })
+      // check formdata values
+      expect(inputFile.files[0]).toEqual(testFile)
     })
 
-    // POST integration test
+    test("Then upload a wrong file should trigger an error", async () => {
+      // get the input file element and add the event listener
+      await waitFor(() => screen.getByTestId("file"))
+      const inputFile = screen.getByTestId("file")
 
-    describe("When I click on the submit button", () => {
-      test("then it should create a new bill", () => {
-        // fill the form inputs with the custom values
-        customInputs.forEach((input) =>
-          fireEvent.change(screen.getByTestId(input.testId), {
-            target: { value: input.value },
-          })
-        )
+      inputFile.addEventListener("change", handleChangeFile)
 
-        // spy the onNavigate and updateBill method
-        const spyOnNavigate = jest.spyOn(newBill, "onNavigate")
-
-        const spyUpdateBill = jest.spyOn(newBill, "updateBill")
-
-        // mock the handleSubmit function
-        const handleSubmit = jest.fn((e) => newBill.handleSubmit(e))
-
-        const form = screen.getByTestId("form-new-bill")
-        form.addEventListener("submit", handleSubmit)
-
-        // submit the form
-        fireEvent.submit(form)
-
-        // check that the handleSubmit function was called
-        expect(handleSubmit).toHaveBeenCalled()
-
-        // check that the updateBill method was called with the right values
-        expect(spyUpdateBill).toHaveBeenCalledWith(
-          expect.objectContaining({
-            type: "Transports",
-            name: "Vol Paris-Bordeaux",
-            date: "2023-04-01",
-            amount: 42,
-            vat: "18",
-            pct: 20,
-            commentary: "test bill",
-            status: "pending",
-          })
-        )
-
-        // check that the onNavigate method was called with the right path
-        expect(spyOnNavigate).toHaveBeenCalledWith(ROUTES_PATH["Bills"])
-
-        // check that the page has changed to the bill page
-        expect(screen.getByText("Mes notes de frais")).toBeTruthy()
+      // creation of the test file to upload
+      const testFile = new File(["test"], "test.pdf", {
+        type: "document/pdf",
       })
+
+      // spy the console
+      const errorSpy = jest.spyOn(console, "error")
+
+      // simulate the file upload
+      fireEvent.change(inputFile, {
+        target: {
+          files: [testFile],
+        },
+      })
+
+      // check that the error message is displayed in the console
+      expect(errorSpy).toHaveBeenCalledWith("wrong extension")
+    })
+  })
+  // POST integration test
+  describe("When I am on NewBill Page and I click on the submit button", () => {
+    test("Then it should create a new bill", () => {
+      // fill the form inputs with the custom values
+      customInputs.forEach((input) =>
+        fireEvent.change(screen.getByTestId(input.testId), {
+          target: { value: input.value },
+        })
+      )
+
+      // spy the onNavigate and updateBill method
+      const spyOnNavigate = jest.spyOn(newBill, "onNavigate")
+
+      const spyUpdateBill = jest.spyOn(newBill, "updateBill")
+
+      // mock the handleSubmit function
+      const handleSubmit = jest.fn((e) => newBill.handleSubmit(e))
+
+      const form = screen.getByTestId("form-new-bill")
+      form.addEventListener("submit", handleSubmit)
+
+      // submit the form
+      fireEvent.submit(form)
+
+      // check that the handleSubmit function was called
+      expect(handleSubmit).toHaveBeenCalled()
+
+      // check that the updateBill method was called with the right values
+      expect(spyUpdateBill).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "Transports",
+          name: "Vol Paris-Bordeaux",
+          date: "2023-04-01",
+          amount: 42,
+          vat: "18",
+          pct: 20,
+          commentary: "test bill",
+          status: "pending",
+        })
+      )
+
+      // check that the onNavigate method was called with the right path
+      expect(spyOnNavigate).toHaveBeenCalledWith(ROUTES_PATH["Bills"])
+
+      // check that the page has changed to the bill page
+      expect(screen.getByText("Mes notes de frais")).toBeTruthy()
     })
   })
 })

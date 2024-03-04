@@ -15,7 +15,23 @@ import { formatDate, formatStatus } from "../app/format.js"
 import router from "../app/Router.js"
 
 describe("Given I am connected as an employee", () => {
+  let billsObject
+
   beforeEach(() => {
+    // set up the bills page
+    document.body.innerHTML = BillsUI({ data: bills })
+
+    const onNavigate = (pathname) => {
+      document.body.innerHTML = ROUTES({ pathname })
+    }
+
+    // init bills object
+    billsObject = new Bills({
+      document,
+      onNavigate,
+      store: mockStore,
+      localStorage: window.localStorage,
+    })
     // set up the mock localStorage and mock user for the test
     Object.defineProperty(window, "localStorage", { value: localStorageMock })
 
@@ -29,7 +45,7 @@ describe("Given I am connected as an employee", () => {
   })
 
   describe("When I am on Bills Page", () => {
-    test("Then bill icon in vertical layout should be highlighted", async () => {
+    test("Then, bill icon in vertical layout should be highlighted", async () => {
       // creation of the root element
       const root = document.createElement("div")
       root.setAttribute("id", "root")
@@ -45,140 +61,126 @@ describe("Given I am connected as an employee", () => {
 
       expect(windowIcon.classList).toContain("active-icon")
     })
-
-    describe("When I check the bills container", () => {
-      let billsObject
-
-      beforeEach(() => {
-        // set up the bills page
-        document.body.innerHTML = BillsUI({ data: bills })
-
-        const onNavigate = (pathname) => {
-          document.body.innerHTML = ROUTES({ pathname })
-        }
-
-        // init bills object
-        billsObject = new Bills({
-          document,
-          onNavigate,
-          store: mockStore,
-          localStorage: window.localStorage,
-        })
-      })
-
-      test("Then bills should be ordered from earliest to latest", () => {
-        const dates = screen
-          .getAllByText(
-            /^(19|20)\d\d[- /.](0[1-9]|1[012])[- /.](0[1-9]|[12][0-9]|3[01])$/i
-          )
-          .map((a) => a.innerHTML)
-        const antiChrono = (a, b) => (a < b ? 1 : -1)
-        const datesSorted = [...dates].sort(antiChrono)
-
-        expect(dates).toEqual(datesSorted)
-      })
-
-      describe("When I click on New Bill button", () => {
-        test("Then it should navigate to New Bill page", () => {
-          const newBillBtn = screen.getByTestId("btn-new-bill")
-
-          const handleClickNewBill = jest.fn(() =>
-            billsObject.handleClickNewBill()
-          )
-
-          newBillBtn.addEventListener("click", handleClickNewBill)
-
-          userEvent.click(newBillBtn)
-
-          //the function is called
-          expect(handleClickNewBill).toHaveBeenCalled()
-
-          //new bill page is displayed
-          expect(screen.getByTestId("form-new-bill")).toBeTruthy()
-        })
-      })
-
-      describe("When I click on Eye icon", () => {
-        test("Then a modal should open", () => {
-          const iconEyes = screen.getAllByTestId("icon-eye")
-
-          const handleClickIconEye = jest.fn((icon) =>
-            billsObject.handleClickIconEye(icon)
-          )
-
-          // simulate the modal function
-          $.fn.modal = jest.fn()
-
-          iconEyes.forEach((icon) => {
-            icon.addEventListener("click", () => handleClickIconEye(icon))
-
-            userEvent.click(icon)
-
-            //the function is called
-            expect(handleClickIconEye).toHaveBeenCalled()
-
-            //new bill page is displayed
-            expect(screen.getByText("Justificatif")).toBeTruthy()
-          })
-        })
-      })
-    })
   })
-})
 
-/**
- * GET Bill's integration test
- */
-describe("When I navigate to bill's page", () => {
-  let billsObject
+  describe("When I am on Bills Page and I check the bills container", () => {
+    test("Then, bills should be ordered from earliest to latest", () => {
+      const dates = screen
+        .getAllByText(
+          /^(19|20)\d\d[- /.](0[1-9]|1[012])[- /.](0[1-9]|[12][0-9]|3[01])$/i
+        )
+        .map((a) => a.innerHTML)
+      const antiChrono = (a, b) => (a < b ? 1 : -1)
+      const datesSorted = [...dates].sort(antiChrono)
 
-  beforeEach(() => {
-    const root = document.createElement("div")
-    root.setAttribute("id", "root")
-
-    document.body.append(root)
-
-    router()
-    window.onNavigate(ROUTES_PATH.Bills)
-
-    billsObject = new Bills({
-      document,
-      onNavigate,
-      store: mockStore,
-      localStorage: window.localStorage,
+      expect(dates).toEqual(datesSorted)
     })
   })
 
-  test("fetches bills from mock API GET", async () => {
-    await waitFor(() => screen.getByText("Mes notes de frais"))
+  describe("When I am on Bills Page and I click on New Bill button", () => {
+    test("Then, it should navigate to New Bill page", () => {
+      const newBillBtn = screen.getByTestId("btn-new-bill")
 
-    // the page is displayed
-    expect(screen.getByText("Mes notes de frais")).toBeTruthy()
+      const handleClickNewBill = jest.fn(() => billsObject.handleClickNewBill())
 
-    //the table is displayed
-    expect(screen.getByTestId("tbody")).toBeTruthy()
+      newBillBtn.addEventListener("click", handleClickNewBill)
+
+      userEvent.click(newBillBtn)
+
+      //the function is called
+      expect(handleClickNewBill).toHaveBeenCalled()
+
+      //new bill page is displayed
+      expect(screen.getByTestId("form-new-bill")).toBeTruthy()
+    })
   })
 
-  test("then it would display bills", async () => {
-    // init bills display
+  describe("When I am on Bills Page and I click on Eye icon", () => {
+    test("Then, a modal should open", () => {
+      const iconEyes = screen.getAllByTestId("icon-eye")
 
-    const getBillsSpy = jest.spyOn(billsObject, "getBills")
-    const data = await billsObject.getBills()
-    const mockBills = await mockStore.bills().list()
+      const handleClickIconEye = jest.fn((icon) =>
+        billsObject.handleClickIconEye(icon)
+      )
 
-    expect(getBillsSpy).toHaveBeenCalled()
+      // simulate the modal function
+      $.fn.modal = jest.fn()
 
-    expect(data[0].date).toEqual(formatDate(mockBills[0].date))
+      iconEyes.forEach((icon) => {
+        icon.addEventListener("click", () => handleClickIconEye(icon))
 
-    expect(data[0].status).toEqual(formatStatus(mockBills[0].status))
+        userEvent.click(icon)
+
+        //the function is called
+        expect(handleClickIconEye).toHaveBeenCalled()
+
+        //new bill page is displayed
+        expect(screen.getByText("Justificatif")).toBeTruthy()
+      })
+    })
   })
 
-  describe("When an error occurs on API", () => {
+  describe("When I am on Bills Page but back-end send an error message", () => {
+    test("Then, Error page should be rendered", () => {
+      document.body.innerHTML = BillsUI({ error: "some error message" })
+      expect(screen.getAllByText("Erreur")).toBeTruthy()
+    })
+  })
+  /**
+   * GET Bill's integration test
+   */
+
+  describe("When I am on Bills Page and I navigate to bill's page", () => {
+    let billsObject
+
+    beforeEach(() => {
+      const root = document.createElement("div")
+      root.setAttribute("id", "root")
+
+      document.body.append(root)
+
+      router()
+      window.onNavigate(ROUTES_PATH.Bills)
+
+      billsObject = new Bills({
+        document,
+        onNavigate,
+        store: mockStore,
+        localStorage: window.localStorage,
+      })
+    })
+
+    test("Then, fetches bills from mock API GET", async () => {
+      await waitFor(() => screen.getByText("Mes notes de frais"))
+
+      // the page is displayed
+      expect(screen.getByText("Mes notes de frais")).toBeTruthy()
+
+      //the table is displayed
+      expect(screen.getByTestId("tbody")).toBeTruthy()
+    })
+
+    test("Then, it would display bills", async () => {
+      // init bills display
+
+      const getBillsSpy = jest.spyOn(billsObject, "getBills")
+      const data = await billsObject.getBills()
+      const mockBills = await mockStore.bills().list()
+
+      expect(getBillsSpy).toHaveBeenCalled()
+
+      expect(data[0].date).toEqual(formatDate(mockBills[0].date))
+
+      expect(data[0].status).toEqual(formatStatus(mockBills[0].status))
+    })
+  })
+
+  describe("When I am on Bills Page and an error occurs on API", () => {
     beforeEach(() => {
       jest.spyOn(mockStore, "bills")
     })
 
-    test("fetches bills from an API and fails with 404 message error", async () => {
+    test("Then, fetches bills from an API and fails with 404 message error", async () => {
       // implement the store and set it up to return a Promise.reject() with a new Error("Erreur 404") error
       mockStore.bills.mockImplementationOnce(() => {
         return {
@@ -209,7 +211,7 @@ describe("When I navigate to bill's page", () => {
       expect(message).toBeTruthy()
     })
 
-    test("fetches messages from an API and fails with 500 message error", async () => {
+    test("Then, fetches messages from an API and fails with 500 message error", async () => {
       // implement the store and set it up to return a Promise.reject() with a new Error("Erreur 500") error
       mockStore.bills.mockImplementationOnce(() => {
         return {
@@ -234,7 +236,7 @@ describe("When I navigate to bill's page", () => {
       document.body.innerHTML = BillsUI({ error: response })
 
       // Find the error message in the UI
-      const message = await screen.getByText(/Erreur 500/)
+      const message = screen.getByText(/Erreur 500/)
 
       // Expect the error message to be present in the UI
       expect(message).toBeTruthy()
